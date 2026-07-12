@@ -69,6 +69,8 @@ Build distributable artifacts with `uv build`. GitHub Actions builds and uploads
 PYTHON_BIN=/c/path/to/.venv/Scripts/python.exe ./scripts/build-and-install.sh
 ```
 
+When launched in an interactive Git Bash window, each script keeps the window open and reports success or failure until Enter is pressed. Set `NO_PAUSE=1` for automation.
+
 ## Examples
 
 Run the async Python example after installing the wheel:

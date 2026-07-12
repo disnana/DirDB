@@ -69,6 +69,8 @@ python -m pip install DirDB-Rust
 PYTHON_BIN=/c/path/to/.venv/Scripts/python.exe ./scripts/build-and-install.sh
 ```
 
+対話的なGit Bashウィンドウで起動した場合、各スクリプトは成功／失敗を表示してEnterが押されるまでウィンドウを閉じません。自動化では`NO_PAUSE=1`を指定できます。
+
 ## サンプル
 
 wheelのインストール後に、async Pythonサンプルを実行できます。

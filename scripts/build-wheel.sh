@@ -5,6 +5,24 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
+finish() {
+    local status=$?
+    trap - EXIT
+
+    if [[ "${NO_PAUSE:-0}" != "1" && -t 0 && -t 1 ]]; then
+        if [[ "$status" -eq 0 ]]; then
+            printf '\nBuild completed successfully.\n'
+        else
+            printf '\nBuild failed with exit code %s.\n' "$status" >&2
+        fi
+        read -r -p "Press Enter to close..."
+    fi
+
+    exit "$status"
+}
+
+trap finish EXIT
+
 require_command() {
     command -v "$1" >/dev/null 2>&1 || {
         printf 'Required command not found: %s\n' "$1" >&2
