@@ -97,6 +97,9 @@ python -m tests tests/python -q
 
 # Measure async read/write throughput.
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32
+
+# Measure dictionary-style document round trips.
+python benchmark/python/mapping_roundtrip.py --items 1000
 ```
 
 See [benchmark notes](benchmark/README.md).
@@ -106,3 +109,5 @@ See [benchmark notes](benchmark/README.md).
 [CI](.github/workflows/ci.yml) runs Rust formatting, Clippy, Rust tests, wheel build/install tests with pytest, Python compilation checks, and platform wheel builds. Pushing a `v*` tag runs the same quality gates, then creates a GitHub Release and publishes the Linux, macOS, and Windows wheels plus the source distribution to [PyPI](https://pypi.org/project/DirDB-Rust/) through Trusted Publishing.
 
 Documentation: [English guides](docs/en/README.md) | [Japanese guides](docs/ja/README.md) | [English design](docs/design.md) | [日本語設計書](docs/design.ja.md) | [日本語README](README.ja.md)
+
+Implementation tracker: [TODO](TODO.md) | [TODO (Japanese)](TODO.ja.md)
