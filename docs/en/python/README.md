@@ -45,6 +45,18 @@ version = db.set("app/config", {"theme": "dark"})
 config = db.get("app/config")
 ```
 
+`DirDB` also implements Python's mutable mapping protocol. Use this form when configuration documents are naturally handled as a dictionary:
+
+```python
+db["app/config"] = {"theme": "dark", "features": ["sync", "async"]}
+config = db["app/config"]
+del db["app/config"]
+```
+
+`get(key, default)` follows standard dictionary behavior. Use `require(key)` when a missing key must raise `FileNotFoundError`.
+
+Python dictionaries and lists cross the Rust boundary as structured JSON-compatible values; the binding does not serialize them to a temporary JSON string first.
+
 ## Version Checks
 
 Pass `expected_version` to prevent a stale read from overwriting a newer document. A mismatch raises an error.

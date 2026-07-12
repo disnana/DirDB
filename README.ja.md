@@ -48,6 +48,12 @@ cargo test -p dirdb-core
 uv run maturin develop
 ```
 
+## インストール
+
+```bash
+python -m pip install DirDB-Rust
+```
+
 配布物は `uv build` で生成できます。GitHub ActionsはプルリクエストとバージョンタグでLinux、macOS、Windows向けwheelを自動生成・保存します。
 
 ### Git for Windows Bash
@@ -93,6 +99,10 @@ python -m tests tests/python -q
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32
 ```
 
-[ベンチマークの注意事項](benchmark/README.ja.md)も参照してください。CIはRustテスト、wheel生成・インストール、Python pytestの順で実行します。
+[ベンチマークの注意事項](benchmark/README.ja.md)も参照してください。
+
+## CIとリリース
+
+[CI](.github/workflows/ci.yml)は、Rustフォーマット、Clippy、Rustテスト、wheelのビルド／インストールを含むpytest、Pythonコンパイル検査、OS別wheelビルドを実行します。`v*`タグをpushすると、同じ品質ゲートを通過した後にGitHub Releaseを作成し、Trusted PublishingでLinux、macOS、Windows向けwheelとソース配布物を[PyPI](https://pypi.org/project/DirDB-Rust/)へ公開します。
 
 文書: [日本語ガイド](docs/ja/README.md) | [English guides](docs/en/README.md) | [日本語設計書](docs/design.ja.md) | [English design](docs/design.md) | [English README](README.md)

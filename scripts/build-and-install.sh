@@ -8,7 +8,7 @@ export PYTHON_BIN="${PYTHON_BIN:-python}"
 "$ROOT_DIR/scripts/build-wheel.sh"
 
 PYTHON_PATH="$(command -v "$PYTHON_BIN")"
-WHEEL_PATH="$(find "$ROOT_DIR/dist" -maxdepth 1 -type f -name 'dirdb-*.whl' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
+WHEEL_PATH="$(find "$ROOT_DIR/dist" -maxdepth 1 -type f -name 'dirdb_rust-*.whl' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
 
 if [[ -z "$WHEEL_PATH" ]]; then
     printf 'No DirDB wheel was generated.\n' >&2

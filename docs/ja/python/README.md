@@ -45,6 +45,18 @@ version = db.set("app/config", {"theme": "dark"})
 config = db.get("app/config")
 ```
 
+`DirDB`はPythonの可変マッピングプロトコルも実装します。設定ドキュメントを辞書として自然に扱いたい場合は、次の形式を使えます。
+
+```python
+db["app/config"] = {"theme": "dark", "features": ["sync", "async"]}
+config = db["app/config"]
+del db["app/config"]
+```
+
+`get(key, default)`は標準の辞書と同じ挙動です。キーがない場合に`FileNotFoundError`を必ず受け取りたいときは`require(key)`を使います。
+
+Pythonの辞書とリストは構造化されたJSON互換値としてRust境界を通過します。一時的なJSON文字列へのシリアライズは行いません。
+
 ## バージョン検査
 
 古い読み込み結果で新しいドキュメントを上書きしないために、`expected_version`を渡します。現在のバージョンと違う場合はエラーになります。

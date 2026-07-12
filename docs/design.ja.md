@@ -93,7 +93,13 @@ flowchart LR
 
 ## ビルドとリリース
 
-`uv build` はmaturinを通じてソース配布物とwheelを生成します。`.github/workflows/release.yml` はワークスペーステストを実行し、プルリクエスト、手動実行、`v*`タグでLinux、macOS、Windows向けwheel成果物を生成します。
+`uv build` はmaturinを通じてソース配布物とwheelを生成します。`.github/workflows/ci.yml` はフォーマットとClippyを検査し、Rust／Pythonテスト、Linux・macOS・Windows向けwheelビルドを実行します。`v*`タグのpush時には、それらの配布物を添付したGitHub Releaseも作成します。
+
+同じバージョンタグで、GitHub OIDCのTrusted Publishingを使い、テスト済みの配布物をPyPIへ公開します。PyPIプロジェクト名は[`DirDB-Rust`](https://pypi.org/project/DirDB-Rust/)ですが、Pythonからのimportは引き続き`from dirdb import DirDB`です。
+
+## 将来の転送最適化
+
+ローカルコア自身はネットワーク経由でデータ転送をしません。将来のサーバーレイヤーでは、エントリの`version`、内容ハッシュ、変更パスを通常の転送単位にします。クライアントが同一バージョンまたはハッシュを持つ場合は`not_modified`を返し、Watchイベントは通常、パス、操作、バージョン、ハッシュだけを持ちます。ドキュメント本体はキャッシュミス、明示的な取得、または小さい値をイベントへ含める閾値を超えない場合だけ送ります。低レベルの通信プロトコルを追加する前に、バッチ操作と変更シーケンスで往復回数を減らします。
 
 ## 復旧設計
 

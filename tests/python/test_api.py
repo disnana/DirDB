@@ -21,6 +21,23 @@ def test_sync_document_lifecycle(tmp_path) -> None:
     assert db.exists("app/config") is False
 
 
+def test_python_mapping_operations(tmp_path) -> None:
+    db = DirDB(str(tmp_path / "state"))
+    db["app/config"] = {"theme": "dark", "features": ["sync", "async"]}
+
+    assert db["app/config"] == {"theme": "dark", "features": ["sync", "async"]}
+    assert db.get("missing") is None
+    assert db.get("missing", {"fallback": True}) == {"fallback": True}
+    assert "app/config" in db
+    assert list(db) == ["app/config"]
+    assert len(db) == 1
+
+    del db["app/config"]
+    assert "app/config" not in db
+    with pytest.raises(KeyError):
+        _ = db["app/config"]
+
+
 def test_async_document_lifecycle(tmp_path) -> None:
     async def scenario() -> None:
         db = DirDB(str(tmp_path / "state"))

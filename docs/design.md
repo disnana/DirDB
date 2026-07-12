@@ -93,7 +93,13 @@ flowchart LR
 
 ## Build and Release
 
-`uv build` produces source and wheel distributions through maturin. `.github/workflows/release.yml` runs workspace tests and creates wheel artifacts for Linux, macOS, and Windows on pull requests, manual runs, and `v*` tags.
+`uv build` produces source and wheel distributions through maturin. `.github/workflows/ci.yml` checks formatting and Clippy, runs Rust and Python tests, builds wheels for Linux, macOS, and Windows, and creates a GitHub Release with those artifacts when a `v*` tag is pushed.
+
+The same version tag publishes those tested artifacts to PyPI through GitHub OIDC Trusted Publishing. The PyPI project is [`DirDB-Rust`](https://pypi.org/project/DirDB-Rust/), while Python imports remain `from dirdb import DirDB`.
+
+## Future Transfer Optimization
+
+The local core does not transfer data across a network. A future server layer should use the entry `version`, content hash, and changed path as its normal transfer unit. A client that already has the same version or hash receives `not_modified`; watch events normally carry only path, operation, version, and hash. Full document bytes are sent only on a cache miss, explicit fetch, or when a small-value threshold permits inline payloads. Batch operations and change sequences should reduce round trips before introducing a lower-level protocol.
 
 ## Recovery Design
 

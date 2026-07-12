@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator, MutableMapping
 from typing import Any
 
 from ._native import NativeDirDB
@@ -10,7 +11,7 @@ from ._native import NativeDirDB
 __all__ = ["DirDB"]
 
 
-class DirDB:
+class DirDB(MutableMapping[str, Any]):
     """A local DirDB store with synchronous and asyncio-friendly operations.
 
     The ``a*`` methods use a worker thread. Native file and SQLite work releases
@@ -20,7 +21,14 @@ class DirDB:
     def __init__(self, root: str) -> None:
         self._native = NativeDirDB(root)
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self._native.get(key)
+        except FileNotFoundError:
+            return default
+
+    def require(self, key: str) -> Any:
+        """Return a value or raise FileNotFoundError when the key is absent."""
         return self._native.get(key)
 
     def set(self, key: str, value: Any, expected_version: int | None = None) -> int:
@@ -37,6 +45,27 @@ class DirDB:
 
     def rebuild_index(self) -> int:
         return self._native.rebuild_index()
+
+    def __getitem__(self, key: str) -> Any:
+        try:
+            return self.require(key)
+        except FileNotFoundError as error:
+            raise KeyError(key) from error
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.set(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        try:
+            self.delete(key)
+        except FileNotFoundError as error:
+            raise KeyError(key) from error
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.list())
+
+    def __len__(self) -> int:
+        return len(self.list())
 
     async def aget(self, key: str) -> Any:
         return await asyncio.to_thread(self.get, key)

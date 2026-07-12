@@ -30,4 +30,4 @@ uvx --from maturin maturin build \
     --interpreter "$PYTHON_PATH"
 
 printf 'Built wheel(s):\n'
-find dist -maxdepth 1 -type f -name 'dirdb-*.whl' -print
+find dist -maxdepth 1 -type f -name 'dirdb_rust-*.whl' -print
