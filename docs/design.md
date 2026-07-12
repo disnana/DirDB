@@ -93,9 +93,9 @@ flowchart LR
 
 ## Build and Release
 
-`uv build` produces source and wheel distributions through maturin. `.github/workflows/ci.yml` checks formatting and Clippy, runs Rust and Python tests, builds wheels for Linux, macOS, and Windows, and creates a GitHub Release with those artifacts when a `v*` tag is pushed.
+`uv build` produces source and wheel distributions through maturin. `.github/workflows/ci.yml` checks Rust formatting and Clippy, Ruff checks and formatting, Rust/Python tests, and builds wheels for Linux, macOS, and Windows. A successful push to `main` checks whether the configured version exists on PyPI; a new version automatically creates a GitHub Release and publishes the tested artifacts.
 
-The same version tag publishes those tested artifacts to PyPI through GitHub OIDC Trusted Publishing. The PyPI project is [`DirDB-Rust`](https://pypi.org/project/DirDB-Rust/), while Python imports remain `from dirdb import DirDB`.
+Publication uses GitHub OIDC Trusted Publishing. The PyPI project is [`DirDB-Rust`](https://pypi.org/project/DirDB-Rust/), while Python imports remain `from dirdb import DirDB`.
 
 ## Future Transfer Optimization
 

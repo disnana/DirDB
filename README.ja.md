@@ -108,7 +108,7 @@ python benchmark/python/mapping_roundtrip.py --items 1000
 
 ## CIとリリース
 
-[CI](.github/workflows/ci.yml)は、Rustフォーマット、Clippy、Rustテスト、wheelのビルド／インストールを含むpytest、Pythonコンパイル検査、OS別wheelビルドを実行します。`v*`タグをpushすると、同じ品質ゲートを通過した後にGitHub Releaseを作成し、Trusted PublishingでLinux、macOS、Windows向けwheelとソース配布物を[PyPI](https://pypi.org/project/DirDB-Rust/)へ公開します。
+[CI](.github/workflows/ci.yml)は、Rustフォーマット、Clippy、Rustテスト、Ruff検査／フォーマット、wheelのビルド／インストールを含むpytest、Pythonコンパイル検査、OS別wheelビルドを実行します。`main`へのpushがすべて成功すると、CIはPyPI上の同一バージョンを確認します。新しいバージョンの場合はGitHub Releaseを作成し、Trusted PublishingでLinux、macOS、Windows向けwheelとソース配布物を[PyPI](https://pypi.org/project/DirDB-Rust/)へ公開します。
 
 文書: [日本語ガイド](docs/ja/README.md) | [English guides](docs/en/README.md) | [日本語設計書](docs/design.ja.md) | [English design](docs/design.md) | [English README](README.md)
 

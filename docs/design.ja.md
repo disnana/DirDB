@@ -93,9 +93,9 @@ flowchart LR
 
 ## ビルドとリリース
 
-`uv build` はmaturinを通じてソース配布物とwheelを生成します。`.github/workflows/ci.yml` はフォーマットとClippyを検査し、Rust／Pythonテスト、Linux・macOS・Windows向けwheelビルドを実行します。`v*`タグのpush時には、それらの配布物を添付したGitHub Releaseも作成します。
+`uv build` はmaturinを通じてソース配布物とwheelを生成します。`.github/workflows/ci.yml` はRustフォーマットとClippy、Ruff検査／フォーマット、Rust／Pythonテスト、Linux・macOS・Windows向けwheelビルドを実行します。`main`へのpushが成功すると、設定バージョンがPyPIに存在するかを確認し、新しいバージョンではGitHub Releaseを作成してテスト済み配布物を公開します。
 
-同じバージョンタグで、GitHub OIDCのTrusted Publishingを使い、テスト済みの配布物をPyPIへ公開します。PyPIプロジェクト名は[`DirDB-Rust`](https://pypi.org/project/DirDB-Rust/)ですが、Pythonからのimportは引き続き`from dirdb import DirDB`です。
+公開にはGitHub OIDCのTrusted Publishingを使います。PyPIプロジェクト名は[`DirDB-Rust`](https://pypi.org/project/DirDB-Rust/)ですが、Pythonからのimportは引き続き`from dirdb import DirDB`です。
 
 ## 将来の転送最適化
 

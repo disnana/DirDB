@@ -108,7 +108,7 @@ See [benchmark notes](benchmark/README.md).
 
 ## CI and Releases
 
-[CI](.github/workflows/ci.yml) runs Rust formatting, Clippy, Rust tests, wheel build/install tests with pytest, Python compilation checks, and platform wheel builds. Pushing a `v*` tag runs the same quality gates, then creates a GitHub Release and publishes the Linux, macOS, and Windows wheels plus the source distribution to [PyPI](https://pypi.org/project/DirDB-Rust/) through Trusted Publishing.
+[CI](.github/workflows/ci.yml) runs Rust formatting, Clippy, Rust tests, Ruff checks/formatting, wheel build/install tests with pytest, Python compilation checks, and platform wheel builds. A successful push to `main` automatically checks the package version against PyPI; if it is new, CI creates a GitHub Release and publishes the Linux, macOS, and Windows wheels plus the source distribution to [PyPI](https://pypi.org/project/DirDB-Rust/) through Trusted Publishing.
 
 Documentation: [English guides](docs/en/README.md) | [Japanese guides](docs/ja/README.md) | [English design](docs/design.md) | [日本語設計書](docs/design.ja.md) | [日本語README](README.ja.md)
 

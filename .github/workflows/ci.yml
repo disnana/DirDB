@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -19,9 +18,43 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - run: python -m pip install ruff
+      - run: ruff check python examples tests benchmark
+      - run: ruff format --check python examples tests benchmark
+
+  release-eligibility:
+    name: Check PyPI version
+    needs: quality
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          PACKAGE_NAME: DirDB-Rust
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' "https://pypi.org/pypi/${PACKAGE_NAME}/${version}/json")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" = "404" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "PyPI does not contain ${PACKAGE_NAME} ${version}; publication is eligible."
+          elif [ "$status" = "200" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "PyPI already contains ${PACKAGE_NAME} ${version}; skipping publication."
+          else
+            echo "Unexpected PyPI response: ${status}" >&2
+            exit 1
+          fi
 
   python-tests:
     name: Python wheel tests
@@ -85,8 +118,8 @@ jobs:
 
   release:
     name: GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [quality, python-tests, wheels, source]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release-eligibility.outputs.publish == 'true'
+    needs: [release-eligibility, python-tests, wheels, source]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,13 +135,16 @@ jobs:
           path: release-dist
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.release-eligibility.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: v${{ needs.release-eligibility.outputs.version }}
           generate_release_notes: true
           files: release-dist/*
 
   publish-pypi:
     name: Publish to PyPI
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [quality, python-tests, wheels, source]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release-eligibility.outputs.publish == 'true'
+    needs: [release-eligibility, python-tests, wheels, source]
     runs-on: ubuntu-latest
     environment:
       name: pypi
