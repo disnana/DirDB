@@ -56,4 +56,15 @@ await db.aset("app/config", {"theme": "light"}, expected_version=current)
 
 [完全なサンプル](../../../examples/python/async_basic.py)は、`python examples/python/async_basic.py`で実行できます。
 
+## テスト
+
+wheelをビルド・インストールした後、Pythonの回帰テストは次で実行します。
+
+```bash
+python -m pip install "pytest>=8"
+python -m pytest tests/python -q
+```
+
+テストには、タイムアウトを設定した並行async読み書きテストが含まれます。ストレージ処理のデッドロックが再発した場合は失敗します。
+
 English guide: [../../en/python/README.md](../../en/python/README.md)

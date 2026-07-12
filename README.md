@@ -82,9 +82,12 @@ See [all examples](examples/README.md).
 ## Tests and Benchmarks
 
 ```bash
-# Install the Python test dependency after building/installing DirDB.
+# Build/install DirDB first, then install the Python test dependency.
 python -m pip install "pytest>=8"
 python -m pytest tests/python -q
+
+# Convenience alias; this delegates to pytest.
+python -m tests tests/python -q
 
 # Measure async read/write throughput.
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32

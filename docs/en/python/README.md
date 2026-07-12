@@ -56,4 +56,15 @@ await db.aset("app/config", {"theme": "light"}, expected_version=current)
 
 Run [the complete example](../../../examples/python/async_basic.py) with `python examples/python/async_basic.py`.
 
+## Tests
+
+After building and installing the wheel, run the Python regression suite with:
+
+```bash
+python -m pip install "pytest>=8"
+python -m pytest tests/python -q
+```
+
+The suite includes a timeout-bounded concurrent async read/write test, which detects a regression that causes a storage deadlock.
+
 Japanese guide: [../../ja/python/README.md](../../ja/python/README.md)

@@ -82,9 +82,12 @@ cargo run --manifest-path examples/rust/basic/Cargo.toml
 ## テストとベンチマーク
 
 ```bash
-# DirDBをビルド・インストールした後、Pythonテスト依存を入れる
+# 先にDirDBをビルド・インストールし、Pythonテスト依存を入れる
 python -m pip install "pytest>=8"
 python -m pytest tests/python -q
+
+# pytestへ委譲する簡易コマンド
+python -m tests tests/python -q
 
 # async読み書きのスループットを測定する
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32
