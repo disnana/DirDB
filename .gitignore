@@ -1,5 +1,13 @@
 /target/
+**/target/
 /.venv/
+/.verify-venv/
+/.uv-cache/
+/.cargo-home/
+/dist/
+/example-state/
+**/example-state/
+/examples/rust/basic/Cargo.lock
 __pycache__/
 *.py[cod]
 *.pyd

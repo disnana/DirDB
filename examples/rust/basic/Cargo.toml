@@ -1,0 +1,12 @@
+[package]
+name = "dirdb-rust-example"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+dirdb-core = { path = "../../../crates/dirdb-core" }
+serde_json = "1"
+
+# Keep this independently runnable example out of the repository workspace.
+[workspace]

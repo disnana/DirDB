@@ -77,6 +77,24 @@ db.rebuild_index()
 
 `expected_version` prevents lost updates. A mismatch fails with a version-conflict error.
 
+## Python Concurrency Model
+
+Python is async-first for server use. The public package exposes synchronous methods for scripts and `aget`, `aset`, `adelete`, `aexists`, `alist`, and `arebuild_index` for `asyncio` applications. Each async call runs the native operation in a worker thread; the PyO3 layer releases the GIL around filesystem and SQLite work. The core serializes SQLite connection access while allowing the Python event loop to keep serving unrelated work.
+
+```mermaid
+flowchart LR
+    A[asyncio task] --> T[asyncio worker thread]
+    T --> P[PyO3 releases GIL]
+    P --> R[Rust DirDB core]
+    R --> F[Filesystem and SQLite]
+    R --> T
+    T --> A
+```
+
+## Build and Release
+
+`uv build` produces source and wheel distributions through maturin. `.github/workflows/release.yml` runs workspace tests and creates wheel artifacts for Linux, macOS, and Windows on pull requests, manual runs, and `v*` tags.
+
 ## Recovery Design
 
 Recovery will use plan/apply APIs, with dry-run as the default:

@@ -179,7 +179,7 @@ impl DirDb {
     /// Recreates catalog metadata and revision zero from the authoritative files.
     pub fn rebuild_index(&self) -> Result<usize> {
         let keys = self.list("")?;
-        let mut connection = self.connection.lock();
+        let connection = self.connection.lock();
         let transaction = connection.unchecked_transaction()?;
         transaction.execute("DELETE FROM entries", [])?;
         for key in &keys {

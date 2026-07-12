@@ -77,6 +77,24 @@ db.rebuild_index()
 
 `expected_version` により更新競合を検出します。現在のバージョンと一致しない更新は競合エラーとして失敗します。
 
+## Pythonの並行実行モデル
+
+サーバー利用ではPython APIをasync-firstとします。スクリプト向けの同期メソッドに加え、`asyncio`アプリケーション向けに`aget`、`aset`、`adelete`、`aexists`、`alist`、`arebuild_index`を公開します。各非同期呼び出しはワーカースレッドでネイティブ処理を実行し、PyO3層はファイル／SQLite処理中にGILを解放します。コアはSQLite接続へのアクセスを直列化しつつ、Pythonのイベントループは他の処理を継続できます。
+
+```mermaid
+flowchart LR
+    A[asyncio task] --> T[asyncio worker thread]
+    T --> P[PyO3 releases GIL]
+    P --> R[Rust DirDB core]
+    R --> F[Filesystem and SQLite]
+    R --> T
+    T --> A
+```
+
+## ビルドとリリース
+
+`uv build` はmaturinを通じてソース配布物とwheelを生成します。`.github/workflows/release.yml` はワークスペーステストを実行し、プルリクエスト、手動実行、`v*`タグでLinux、macOS、Windows向けwheel成果物を生成します。
+
 ## 復旧設計
 
 復旧はdry-runを標準にした計画／適用APIで提供します。

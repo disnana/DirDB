@@ -1,0 +1,59 @@
+# Python Guide
+
+## Install
+
+Build and install the local wheel from Git for Windows Bash:
+
+```bash
+./scripts/build-and-install.sh
+```
+
+To install into a virtual environment, set `PYTHON_BIN` to that environment's interpreter:
+
+```bash
+PYTHON_BIN=/c/path/to/.venv/Scripts/python.exe ./scripts/build-and-install.sh
+```
+
+## Async-First Use
+
+Use the `a*` methods in applications that run an `asyncio` event loop. Each operation runs native storage work in a worker thread, and the Rust extension releases the GIL while it accesses the filesystem and SQLite.
+
+```python
+import asyncio
+from dirdb import DirDB
+
+async def main() -> None:
+    db = DirDB("./state")
+    version = await db.aset("app/config", {"theme": "dark"})
+    config = await db.aget("app/config")
+    print(version, config)
+
+asyncio.run(main())
+```
+
+Available async methods are `aget`, `aset`, `adelete`, `aexists`, `alist`, and `arebuild_index`.
+
+## Synchronous Use
+
+Small scripts can use the equivalent synchronous methods: `get`, `set`, `delete`, `exists`, `list`, and `rebuild_index`.
+
+```python
+from dirdb import DirDB
+
+db = DirDB("./state")
+version = db.set("app/config", {"theme": "dark"})
+config = db.get("app/config")
+```
+
+## Version Checks
+
+Pass `expected_version` to prevent a stale read from overwriting a newer document. A mismatch raises an error.
+
+```python
+current = await db.aset("app/config", {"theme": "dark"})
+await db.aset("app/config", {"theme": "light"}, expected_version=current)
+```
+
+Run [the complete example](../../../examples/python/async_basic.py) with `python examples/python/async_basic.py`.
+
+Japanese guide: [../../ja/python/README.md](../../ja/python/README.md)

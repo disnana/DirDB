@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Build a native wheel with Git for Windows Bash, using the selected Python ABI.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python}"
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || {
+        printf 'Required command not found: %s\n' "$1" >&2
+        exit 1
+    }
+}
+
+require_command "$PYTHON_BIN"
+require_command cargo
+require_command uvx
+
+PYTHON_PATH="$(command -v "$PYTHON_BIN")"
+if command -v cygpath >/dev/null 2>&1; then
+    PYTHON_PATH="$(cygpath -w "$PYTHON_PATH")"
+fi
+
+cd "$ROOT_DIR"
+mkdir -p dist
+
+uvx --from maturin maturin build \
+    --release \
+    --out dist \
+    --interpreter "$PYTHON_PATH"
+
+printf 'Built wheel(s):\n'
+find dist -maxdepth 1 -type f -name 'dirdb-*.whl' -print

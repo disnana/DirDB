@@ -14,8 +14,25 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace
 
-  wheels:
+  python-tests:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+      - run: python -m pip install pytest
+      - run: python -m pip install --no-deps dist/*.whl
+      - run: python -m pytest tests/python -q
+
+  wheels:
+    needs: [test, python-tests]
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -36,7 +53,7 @@ jobs:
           path: dist
 
   source:
-    needs: test
+    needs: [test, python-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

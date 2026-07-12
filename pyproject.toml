@@ -10,6 +10,9 @@ requires-python = ">=3.9"
 readme = "README.md"
 license = { text = "MIT OR Apache-2.0" }
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [tool.maturin]
 manifest-path = "crates/dirdb-python/Cargo.toml"
 module-name = "dirdb._native"

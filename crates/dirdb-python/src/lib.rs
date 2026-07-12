@@ -20,7 +20,7 @@ impl PyDirDb {
     }
     fn get(&self, py: Python<'_>, key: String) -> PyResult<PyObject> {
         let inner = self.inner.clone();
-        let entry = py.detach(|| inner.get(&key)).map_err(to_py_error)?;
+        let entry = py.allow_threads(|| inner.get(&key)).map_err(to_py_error)?;
         let encoded = serde_json::to_string(&entry.value)
             .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
         Ok(py
@@ -43,25 +43,32 @@ impl PyDirDb {
         let value: serde_json::Value = serde_json::from_str(&encoded)
             .map_err(|error| PyValueError::new_err(error.to_string()))?;
         let inner = self.inner.clone();
-        Ok(py.detach(|| inner.set(&key, &value, expected_version)).map_err(to_py_error)?.version)
+        Ok(py
+            .allow_threads(|| inner.set(&key, &value, expected_version))
+            .map_err(to_py_error)?
+            .version)
     }
     #[pyo3(signature = (key, expected_version=None))]
     fn delete(&self, py: Python<'_>, key: String, expected_version: Option<u64>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.detach(|| inner.delete(&key, expected_version)).map_err(to_py_error)
+        py.allow_threads(|| inner.delete(&key, expected_version))
+            .map_err(to_py_error)
     }
     fn exists(&self, py: Python<'_>, key: String) -> PyResult<bool> {
         let inner = self.inner.clone();
-        py.detach(|| inner.exists(&key)).map_err(to_py_error)
+        py.allow_threads(|| inner.exists(&key)).map_err(to_py_error)
     }
     #[pyo3(signature = (prefix=""))]
-    fn list(&self, py: Python<'_>, prefix: String) -> PyResult<Vec<String>> {
+    fn list(&self, py: Python<'_>, prefix: &str) -> PyResult<Vec<String>> {
         let inner = self.inner.clone();
-        py.detach(|| inner.list(&prefix)).map_err(to_py_error)
+        let prefix = prefix.to_owned();
+        py.allow_threads(|| inner.list(&prefix))
+            .map_err(to_py_error)
     }
     fn rebuild_index(&self, py: Python<'_>) -> PyResult<usize> {
         let inner = self.inner.clone();
-        py.detach(|| inner.rebuild_index()).map_err(to_py_error)
+        py.allow_threads(|| inner.rebuild_index())
+            .map_err(to_py_error)
     }
 }
 fn to_py_error(error: Error) -> PyErr {
