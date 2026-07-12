@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/dirdb-core", "crates/dirdb-python"]
+resolver = "2"
