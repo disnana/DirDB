@@ -1,5 +1,15 @@
 # Pythonガイド
 
+## 自動再読み込み
+
+```python
+from dirdb import DirDB
+
+db = DirDB("./state", cache_max_items=10_000, auto_reload=True, debounce_ms=100)
+```
+
+監視、JSON検証、キャッシュ、ファイルI/O、ハッシュ、SQLite処理はRust側で動きます。直接編集したファイルはdebounce後の次回`get()`から見えます。壊れたJSONは最後の正常値へ原子的に書き戻されます。ヒット数は`db.cache_stats()`、再読込状態は`db.stat(key)`で確認できます。
+
 ## インストール
 
 Git for Windows Bashからローカルwheelを作成・インストールします。

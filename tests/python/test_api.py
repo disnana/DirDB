@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 
 import pytest
 
@@ -85,3 +87,50 @@ def test_concurrent_async_operations_complete_without_deadlock(tmp_path) -> None
         assert values == [{"index": index} for index in range(item_count)]
 
     asyncio.run(scenario())
+
+
+def test_cache_reports_hits_and_respects_limit(tmp_path) -> None:
+    db = DirDB(str(tmp_path / "state"), cache_max_items=1, auto_reload=False)
+    db.set("one", {"value": 1})
+    db.set("two", {"value": 2})
+
+    assert db.get("two") == {"value": 2}
+    stats = db.cache_stats()
+    assert stats["hits"] >= 1
+    assert stats["entries"] == 1
+
+
+def test_external_edits_reload_and_invalid_json_is_repaired(tmp_path) -> None:
+    root = tmp_path / "state"
+    db = DirDB(str(root), debounce_ms=20)
+    db.set("app/config", {"value": 1})
+    path = root / "data" / "app" / "config.json"
+
+    path.write_text(json.dumps({"value": 2}), encoding="utf-8")
+    wait_until(lambda: db.get("app/config") == {"value": 2})
+    version = db.stat("app/config")["current_version"]
+
+    path.write_text("{", encoding="utf-8")
+    wait_until(lambda: is_valid_json(path))
+    assert db.get("app/config") == {"value": 2}
+    assert db.stat("app/config") == {
+        "file_valid": True,
+        "current_version": version,
+        "last_reload_error": None,
+    }
+
+
+def wait_until(predicate, timeout: float = 3.0) -> None:
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() >= deadline:
+            raise AssertionError("condition timed out")
+        time.sleep(0.02)
+
+
+def is_valid_json(path) -> bool:
+    try:
+        json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    return True

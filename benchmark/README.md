@@ -13,8 +13,11 @@ python benchmark/python/async_throughput.py --items 1000 --concurrency 32
 This uses `db["path"] = value` and `db["path"]` with nested dictionaries and lists. It measures the structured Python-to-Rust conversion path.
 
 ```bash
-python benchmark/python/mapping_roundtrip.py --items 1000
+python benchmark/python/mapping_roundtrip.py --items 1000 --read-rounds 10
 ```
+
+The result separates the first pass from repeated warm-cache reads and prints
+Rust cache hit/miss counters.
 
 Run it on the same machine and storage class when comparing changes. Treat the result as a regression signal rather than a universal performance claim.
 

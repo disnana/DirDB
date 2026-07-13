@@ -1,5 +1,18 @@
 # Python Guide
 
+## Automatic Reload
+
+```python
+from dirdb import DirDB
+
+db = DirDB("./state", cache_max_items=10_000, auto_reload=True, debounce_ms=100)
+```
+
+The watcher, JSON validation, cache, file I/O, hashing, and SQLite work run in
+Rust. Directly edited files become visible to the next `get()` after debounce.
+Invalid JSON is atomically replaced with the last valid value. Use
+`db.cache_stats()` for hit counters and `db.stat(key)` for reload health.
+
 ## Install
 
 Build and install the local wheel from Git for Windows Bash:

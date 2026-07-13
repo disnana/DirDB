@@ -75,6 +75,37 @@ db.list("system")
 db.rebuild_index()
 ```
 
+The Rust core maintains a bounded LRU cache and, by default, a native OS file
+watcher. Python reads do not poll the filesystem on a cache hit.
+
+```python
+db = DirDB("./state", cache_max_items=10_000, auto_reload=True, debounce_ms=100)
+print(db.cache_stats())
+print(db.stat("system/config"))
+```
+
+## Automatic Reload and Repair
+
+```mermaid
+flowchart TD
+    O[Native OS file event] --> D[Debounce and deduplicate paths]
+    D --> R[Read authoritative file]
+    R --> V{Valid JSON?}
+    V -- Yes --> H{Hash changed?}
+    H -- No --> N[Ignore internal write echo]
+    H -- Yes --> M[Record version and revision]
+    M --> C[Swap cached entry]
+    V -- No --> L[Load last valid cache or revision]
+    L --> A[Atomically repair authoritative file]
+```
+
+OS notifications are hints, not trusted contents. Rust re-reads and validates
+the file after the debounce window. A valid external edit increments the
+version and replaces the cached document. Invalid JSON never enters the cache:
+DirDB atomically restores the last valid cached value, or the latest valid
+SQLite revision when the cache is cold. With no valid history, `stat()` reports
+the reload error.
+
 `expected_version` prevents lost updates. A mismatch fails with a version-conflict error.
 
 ## Python Concurrency Model
@@ -131,7 +162,7 @@ The first release is embedded/local only. A separate server OSS may later provid
 | Phase | Deliverable |
 | --- | --- |
 | 0.1 | JSON documents, atomic writes, catalog/revisions, version checks, Rust tests, Python binding |
-| 0.2 | Bounded cache, file watching, path-level cross-process lock, CLI |
+| 0.2 | Bounded cache, native file watching, invalid-edit repair, path-level cross-process lock, CLI |
 | 0.3 | Snapshot and plan/apply recovery, maintenance mode |
 | 0.4 | Local IPC adapter |
 | Separate OSS | gRPC server/client, authentication, TLS, batching, watch streams |

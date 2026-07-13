@@ -13,8 +13,10 @@ python benchmark/python/async_throughput.py --items 1000 --concurrency 32
 `db["path"] = value`と`db["path"]`をネストした辞書・リストで使います。PythonからRustへの構造化変換経路を測定します。
 
 ```bash
-python benchmark/python/mapping_roundtrip.py --items 1000
+python benchmark/python/mapping_roundtrip.py --items 1000 --read-rounds 10
 ```
+
+初回の読み取りと繰り返しのwarm cache読み取りを分け、Rustキャッシュのhit/miss数も表示します。
 
 変更を比較する際は、同一マシン・同一ストレージ種別で実行してください。結果は普遍的な性能主張ではなく、性能劣化を見つけるための指標として扱います。
 

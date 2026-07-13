@@ -16,7 +16,8 @@ This list tracks implementation work. The [design document](docs/design.md) expl
 ## v0.2 Local Reliability
 
 - [ ] Process-safe path-level file locks
-- [ ] Configurable bounded memory cache with invalidation
+- [x] Configurable bounded memory cache with automatic invalidation
+- [x] Native file watching, debounce, reload, and invalid-edit self-repair
 - [ ] File watch API with event coalescing
 - [ ] CLI for `get`, `set`, `list`, `inspect`, and `rebuild-index`
 - [ ] Metadata consistency audit and repair command

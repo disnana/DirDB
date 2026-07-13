@@ -1,4 +1,6 @@
-use dirdb_core::{DirDb, Error};
+use std::time::Duration;
+
+use dirdb_core::{DirDb, Error, Options};
 use pyo3::{
     exceptions::{PyFileNotFoundError, PyRuntimeError, PyValueError},
     prelude::*,
@@ -13,9 +15,23 @@ struct PyDirDb {
 #[pymethods]
 impl PyDirDb {
     #[new]
-    fn new(root: String) -> PyResult<Self> {
+    #[pyo3(signature = (root, cache_max_items=10_000, auto_reload=true, debounce_ms=100))]
+    fn new(
+        root: String,
+        cache_max_items: usize,
+        auto_reload: bool,
+        debounce_ms: u64,
+    ) -> PyResult<Self> {
         Ok(Self {
-            inner: DirDb::open(root).map_err(to_py_error)?,
+            inner: DirDb::open_with_options(
+                root,
+                Options {
+                    cache_max_items,
+                    auto_reload,
+                    debounce: Duration::from_millis(debounce_ms),
+                },
+            )
+            .map_err(to_py_error)?,
         })
     }
     fn get(&self, py: Python<'_>, key: String) -> PyResult<PyObject> {
@@ -59,6 +75,18 @@ impl PyDirDb {
         let inner = self.inner.clone();
         py.allow_threads(|| inner.rebuild_index())
             .map_err(to_py_error)
+    }
+    fn cache_stats(&self) -> (u64, u64, usize) {
+        let stats = self.inner.cache_stats();
+        (stats.hits, stats.misses, stats.entries)
+    }
+    fn stat(&self, key: String) -> PyResult<(bool, u64, Option<String>)> {
+        let status = self.inner.stat(&key).map_err(to_py_error)?;
+        Ok((
+            status.file_valid,
+            status.current_version,
+            status.last_reload_error,
+        ))
     }
 }
 fn to_py_error(error: Error) -> PyErr {

@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator, MutableMapping
-from typing import Any
+from typing import Any, TypedDict
 
 from ._native import NativeDirDB
 
-__all__ = ["DirDB"]
+__all__ = ["CacheStats", "DirDB", "EntryStatus"]
+
+
+class CacheStats(TypedDict):
+    hits: int
+    misses: int
+    entries: int
+
+
+class EntryStatus(TypedDict):
+    file_valid: bool
+    current_version: int
+    last_reload_error: str | None
 
 
 class DirDB(MutableMapping[str, Any]):
@@ -18,8 +30,15 @@ class DirDB(MutableMapping[str, Any]):
     the GIL, so unrelated coroutine work can continue while an operation runs.
     """
 
-    def __init__(self, root: str) -> None:
-        self._native = NativeDirDB(root)
+    def __init__(
+        self,
+        root: str,
+        *,
+        cache_max_items: int = 10_000,
+        auto_reload: bool = True,
+        debounce_ms: int = 100,
+    ) -> None:
+        self._native = NativeDirDB(root, cache_max_items, auto_reload, debounce_ms)
 
     def get(self, key: str, default: Any = None) -> Any:
         try:
@@ -45,6 +64,18 @@ class DirDB(MutableMapping[str, Any]):
 
     def rebuild_index(self) -> int:
         return self._native.rebuild_index()
+
+    def cache_stats(self) -> CacheStats:
+        hits, misses, entries = self._native.cache_stats()
+        return {"hits": hits, "misses": misses, "entries": entries}
+
+    def stat(self, key: str) -> EntryStatus:
+        file_valid, current_version, last_reload_error = self._native.stat(key)
+        return {
+            "file_valid": file_valid,
+            "current_version": current_version,
+            "last_reload_error": last_reload_error,
+        }
 
     def __getitem__(self, key: str) -> Any:
         try:
@@ -86,3 +117,6 @@ class DirDB(MutableMapping[str, Any]):
 
     async def arebuild_index(self) -> int:
         return await asyncio.to_thread(self.rebuild_index)
+
+    async def astat(self, key: str) -> EntryStatus:
+        return await asyncio.to_thread(self.stat, key)
