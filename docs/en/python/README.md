@@ -19,6 +19,12 @@ Rust. Directly edited files become visible to the next `get()` after debounce.
 Invalid JSON is atomically replaced with the last valid value. Use
 `db.cache_stats()` for hit counters and `db.stat(key)` for reload health.
 
+## Keys
+
+Keys are relative, slash-separated document paths such as `services/auth`.
+DirDB normalizes repeated slashes and backslashes to `/`, and rejects absolute
+paths, `.`/`..` traversal, and `:` so the data tree cannot be escaped.
+
 ## Install
 
 Build and install the local wheel from Git for Windows Bash:

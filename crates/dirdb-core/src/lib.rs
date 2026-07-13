@@ -27,6 +27,8 @@ use uuid::Uuid;
 pub enum Error {
     #[error("invalid key: {0}")]
     InvalidKey(String),
+    #[error("duplicate key in batch: {0}")]
+    DuplicateKey(String),
     #[error("entry does not exist: {0}")]
     NotFound(String),
     #[error("version conflict for {path}: expected {expected}, actual {actual}")]
@@ -207,7 +209,10 @@ impl DirDb {
         }
         let bytes = serde_json::to_vec_pretty(value)?;
         atomic_write(&file_path(&self.inner, &key), &bytes)?;
-        let version = actual.unwrap_or(0) + 1;
+        let version = match actual {
+            Some(version) => version + 1,
+            None => last_version_from_connection(&connection, &key)? + 1,
+        };
         let hash = digest(&bytes);
         record_revision(&connection, &key, version, &hash, &bytes)?;
         let entry = Entry {
@@ -222,11 +227,10 @@ impl DirDb {
         Ok(entry)
     }
 
-    pub fn set_many(&self, items: &[(String, Value)]) -> Vec<Result<Entry>> {
-        match self.set_many_inner(items) {
-            Ok(entries) => entries.into_iter().map(Ok).collect(),
-            Err(error) => vec![Err(error)],
-        }
+    /// Writes documents in input order and commits their SQLite metadata together.
+    /// Individual files are atomically replaced, but this is not a filesystem-wide transaction.
+    pub fn set_many(&self, items: &[(String, Value)]) -> Result<Vec<Entry>> {
+        self.set_many_inner(items)
     }
 
     pub fn delete(&self, key: &str, expected_version: Option<u64>) -> Result<()> {
@@ -279,9 +283,19 @@ impl DirDb {
         for key in &keys {
             let bytes = fs::read(file_path(&self.inner, key))?;
             let _: Value = serde_json::from_slice(&bytes)?;
+            let hash = digest(&bytes);
+            let version = match latest_revision_from_connection(&transaction, key)? {
+                Some((version, revision_hash)) if revision_hash == hash => version,
+                Some((version, _)) => version + 1,
+                None => 1,
+            };
             transaction.execute(
-                "INSERT INTO entries(path, version, content_hash, modified_at) VALUES(?1, 1, ?2, ?3)",
-                params![key, digest(&bytes), now_unix()],
+                "INSERT INTO entries(path, version, content_hash, modified_at) VALUES(?1, ?2, ?3, ?4)",
+                params![key, version, hash, now_unix()],
+            )?;
+            transaction.execute(
+                "INSERT OR IGNORE INTO revisions(path, version, content, content_hash, created_at) VALUES(?1, ?2, ?3, ?4, ?5)",
+                params![key, version, bytes, hash, now_unix()],
             )?;
         }
         transaction.commit()?;
@@ -300,10 +314,19 @@ impl DirDb {
             .iter()
             .map(|(key, value)| Ok((normalize_key(key)?, value)))
             .collect::<Result<Vec<_>>>()?;
+        let mut unique_keys = HashSet::with_capacity(normalized.len());
+        for (key, _) in &normalized {
+            if !unique_keys.insert(key.as_str()) {
+                return Err(Error::DuplicateKey(key.clone()));
+            }
+        }
         let mut connection = self.inner.connection.lock();
         let mut prepared = Vec::with_capacity(normalized.len());
         for (key, value) in normalized {
-            let version = current_version_from_connection(&connection, &key)?.unwrap_or(0) + 1;
+            let version = match current_version_from_connection(&connection, &key)? {
+                Some(version) => version + 1,
+                None => last_version_from_connection(&connection, &key)? + 1,
+            };
             let bytes = serde_json::to_vec_pretty(value)?;
             atomic_write(&file_path(&self.inner, &key), &bytes)?;
             let hash = digest(&bytes);
@@ -397,9 +420,16 @@ fn refresh_external(inner: &Inner, key: &str) {
     };
     let hash = digest(&bytes);
     let connection = inner.connection.lock();
-    let known = current_metadata_from_connection(&connection, key)
-        .ok()
-        .flatten();
+    let known = match current_metadata_from_connection(&connection, key) {
+        Ok(known) => known,
+        Err(error) => {
+            inner
+                .reload_errors
+                .lock()
+                .insert(key.to_owned(), error.to_string());
+            return;
+        }
+    };
     if known
         .as_ref()
         .is_some_and(|(_, known_hash)| known_hash == &hash)
@@ -408,7 +438,19 @@ fn refresh_external(inner: &Inner, key: &str) {
         remember_stamp(inner, key);
         return;
     }
-    let version = known.map_or(1, |(version, _)| version + 1);
+    let version = match known {
+        Some((version, _)) => version + 1,
+        None => match last_version_from_connection(&connection, key) {
+            Ok(version) => version + 1,
+            Err(error) => {
+                inner
+                    .reload_errors
+                    .lock()
+                    .insert(key.to_owned(), error.to_string());
+                return;
+            }
+        },
+    };
     if let Err(error) = record_revision(&connection, key, version, &hash, &bytes) {
         inner
             .reload_errors
@@ -457,20 +499,28 @@ fn verify_observed_files(inner: &Inner) {
 }
 
 fn restore_last_valid(inner: &Inner, key: &str) -> Result<()> {
-    let cached = inner.cache.lock().peek(key).cloned();
-    let bytes = if let Some(entry) = cached {
-        serde_json::to_vec_pretty(&entry.value)?
-    } else {
-        inner
-            .connection
-            .lock()
-            .query_row(
-                "SELECT content FROM revisions WHERE path=?1 ORDER BY version DESC LIMIT 1",
-                params![key],
-                |row| row.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| Error::NotFound(key.to_owned()))?
+    // Revisions preserve the exact bytes behind the catalog hash, avoiding a
+    // spurious version bump from merely reformatting a repaired JSON file.
+    let revision = inner
+        .connection
+        .lock()
+        .query_row(
+            "SELECT content FROM revisions WHERE path=?1 ORDER BY version DESC LIMIT 1",
+            params![key],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let bytes = match revision {
+        Some(bytes) => bytes,
+        None => {
+            let entry = inner
+                .cache
+                .lock()
+                .peek(key)
+                .cloned()
+                .ok_or_else(|| Error::NotFound(key.to_owned()))?;
+            serde_json::to_vec_pretty(&entry.value)?
+        }
     };
     let _: Value = serde_json::from_slice(&bytes)?;
     atomic_write(&file_path(inner, key), &bytes)
@@ -584,6 +634,27 @@ fn current_version_from_connection(connection: &Connection, key: &str) -> Result
         .optional()?)
 }
 
+fn last_version_from_connection(connection: &Connection, key: &str) -> Result<u64> {
+    Ok(connection.query_row(
+        "SELECT COALESCE(MAX(version), 0) FROM revisions WHERE path=?1",
+        params![key],
+        |row| row.get(0),
+    )?)
+}
+
+fn latest_revision_from_connection(
+    connection: &Connection,
+    key: &str,
+) -> Result<Option<(u64, String)>> {
+    Ok(connection
+        .query_row(
+            "SELECT version, content_hash FROM revisions WHERE path=?1 ORDER BY version DESC LIMIT 1",
+            params![key],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?)
+}
+
 fn current_metadata_from_connection(
     connection: &Connection,
     key: &str,
@@ -618,20 +689,28 @@ fn remember_stamp(inner: &Inner, key: &str) {
 }
 
 fn normalize_key(key: &str) -> Result<String> {
+    let key = key.replace('\\', "/");
     let key = key.trim_matches('/');
     if key.is_empty() {
         return Err(Error::InvalidKey("key must not be empty".into()));
     }
     let path = Path::new(key);
-    if path.components().any(|part| {
-        matches!(
-            part,
-            Component::ParentDir | Component::RootDir | Component::Prefix(_)
-        )
+    if path.components().any(|part| match part {
+        Component::CurDir | Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+            true
+        }
+        Component::Normal(name) => name.to_string_lossy().contains(':'),
     }) {
         return Err(Error::InvalidKey(key.into()));
     }
-    Ok(key.replace('\\', "/"))
+    Ok(path
+        .components()
+        .filter_map(|part| match part {
+            Component::Normal(name) => Some(name.to_string_lossy()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/"))
 }
 
 fn normalize_prefix(prefix: &str) -> Result<String> {
@@ -809,14 +888,82 @@ mod tests {
     fn batch_operations_preserve_input_order() {
         let directory = tempfile::tempdir().unwrap();
         let db = DirDb::open(directory.path()).unwrap();
-        let writes = db.set_many(&[
-            ("one".into(), serde_json::json!({"value": 1})),
-            ("two".into(), serde_json::json!({"value": 2})),
-        ]);
-        assert!(writes.into_iter().all(|entry| entry.unwrap().version == 1));
+        let writes = db
+            .set_many(&[
+                ("one".into(), serde_json::json!({"value": 1})),
+                ("two".into(), serde_json::json!({"value": 2})),
+            ])
+            .unwrap();
+        assert!(writes.into_iter().all(|entry| entry.version == 1));
         let reads = db.get_many(&["two".into(), "one".into()]);
         assert_eq!(reads[0].as_ref().unwrap().value["value"], 2);
         assert_eq!(reads[1].as_ref().unwrap().value["value"], 1);
+    }
+
+    #[test]
+    fn batch_rejects_duplicate_keys() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = DirDb::open(directory.path()).unwrap();
+        let error = db
+            .set_many(&[
+                ("same".into(), serde_json::json!({"value": 1})),
+                ("same".into(), serde_json::json!({"value": 2})),
+            ])
+            .unwrap_err();
+        assert!(matches!(error, Error::DuplicateKey(key) if key == "same"));
+        assert!(!directory.path().join("data/same.json").exists());
+    }
+
+    #[test]
+    fn rejects_non_portable_or_traversing_keys() {
+        for key in [
+            "../secret",
+            "..\\secret",
+            "./config",
+            "C:/config",
+            "config:stream",
+        ] {
+            assert!(
+                matches!(normalize_key(key), Err(Error::InvalidKey(_))),
+                "{key}"
+            );
+        }
+        assert_eq!(normalize_key("services\\auth").unwrap(), "services/auth");
+        assert_eq!(normalize_key("services//auth").unwrap(), "services/auth");
+    }
+
+    #[test]
+    fn versions_remain_monotonic_after_delete_and_rebuild() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = DirDb::open(directory.path()).unwrap();
+        assert_eq!(
+            db.set("config", &serde_json::json!({"value": 1}), None)
+                .unwrap()
+                .version,
+            1
+        );
+        db.delete("config", Some(1)).unwrap();
+        assert_eq!(
+            db.set("config", &serde_json::json!({"value": 2}), None)
+                .unwrap()
+                .version,
+            2
+        );
+        assert_eq!(db.rebuild_index().unwrap(), 1);
+        assert_eq!(db.get("config").unwrap().version, 2);
+    }
+
+    #[test]
+    fn rebuild_indexes_an_external_edit_as_a_new_revision() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = DirDb::open(directory.path()).unwrap();
+        db.set("config", &serde_json::json!({"value": 1}), None)
+            .unwrap();
+        fs::write(directory.path().join("data/config.json"), br#"{"value":2}"#).unwrap();
+        db.rebuild_index().unwrap();
+        let entry = db.get("config").unwrap();
+        assert_eq!(entry.version, 2);
+        assert_eq!(entry.value["value"], 2);
     }
 
     fn wait_until(mut predicate: impl FnMut() -> bool) {

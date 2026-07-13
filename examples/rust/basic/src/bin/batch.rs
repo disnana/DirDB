@@ -6,9 +6,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let writes = db.set_many(&[
         ("services/auth".into(), json!({"enabled": true})),
         ("services/cache".into(), json!({"ttl": 60})),
-    ]);
+    ])?;
     for write in writes {
-        println!("version={}", write?.version);
+        println!("version={}", write.version);
     }
 
     for entry in db.get_many(&["services/auth".into(), "services/cache".into()]) {

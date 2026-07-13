@@ -40,6 +40,16 @@ def test_python_mapping_operations(tmp_path) -> None:
         _ = db["app/config"]
 
 
+def test_keys_are_normalized_and_cannot_escape_the_data_directory(tmp_path) -> None:
+    db = DirDB(str(tmp_path / "state"))
+    db.set("services\\auth", {"enabled": True})
+
+    assert db.get("services//auth") == {"enabled": True}
+    for key in ["../outside", "..\\outside", "./config", "config:stream"]:
+        with pytest.raises(ValueError):
+            db.set(key, {})
+
+
 def test_async_document_lifecycle(tmp_path) -> None:
     async def scenario() -> None:
         db = DirDB(str(tmp_path / "state"))
@@ -47,6 +57,7 @@ def test_async_document_lifecycle(tmp_path) -> None:
 
         assert version == 1
         assert await db.aget("services/auth") == {"enabled": True}
+        assert await db.aget("missing", {"fallback": True}) == {"fallback": True}
         assert await db.alist("services") == ["services/auth"]
 
         await db.adelete("services/auth", expected_version=version)
@@ -112,6 +123,7 @@ def test_external_edits_reload_and_invalid_json_is_repaired(tmp_path) -> None:
 
     path.write_text("{", encoding="utf-8")
     wait_until(lambda: is_valid_json(path))
+    time.sleep(0.15)
     assert db.get("app/config") == {"value": 2}
     assert db.stat("app/config") == {
         "file_valid": True,

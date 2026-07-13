@@ -74,8 +74,9 @@ impl PyDirDb {
             .collect::<PyResult<Vec<_>>>()?;
         let inner = self.inner.clone();
         py.allow_threads(|| inner.set_many(&items))
+            .map_err(to_py_error)?
             .into_iter()
-            .map(|entry| entry.map(|entry| entry.version).map_err(to_py_error))
+            .map(|entry| Ok(entry.version))
             .collect()
     }
     #[pyo3(signature = (key, expected_version=None))]

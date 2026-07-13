@@ -18,7 +18,7 @@
 4. The core is Rust; Python exposes a deliberately small ergonomic API.
 5. Networking is out of the core. It belongs in a future, separately deployable server layer.
 
-## v0.1 Data Model
+## v0.2 Data Model
 
 One logical key maps to one JSON document. `services/auth/config` maps to `data/services/auth/config.json`.
 
@@ -29,7 +29,7 @@ state/
 └── snapshots/            future logical snapshots
 ```
 
-SQLite stores the document key, monotonically increasing version, hash, timestamp, and immutable revision contents. If `metadata.db` is lost, `rebuild_index()` scans the authoritative files and recreates the catalog.
+SQLite stores the document key, monotonically increasing version, hash, timestamp, and immutable revision contents. If `metadata.db` is lost, `rebuild_index()` scans the authoritative files and recreates the catalog. When it finds a valid file whose bytes differ from the latest revision, it records that file as the next revision rather than reverting the file or reusing an old hash.
 
 ## Normal Write Flow
 

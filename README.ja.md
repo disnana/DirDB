@@ -30,7 +30,7 @@ asyncio.run(main())
 
 ## 状態
 
-このリポジトリはv0.1の基盤段階です。JSONドキュメント、原子的な書き込み、楽観的バージョン検査、SQLiteのカタログ／履歴、インデックス再構築、PyO3バインディングを提供します。ファイル監視、キャッシュ方針、復旧計画、ローカルIPC、gRPCは今後のマイルストーンです。
+DirDBはv0.2のローカル信頼性段階です。上限付きRustキャッシュ、OSネイティブ監視と定期整合性検査、壊れた外部JSON編集の自動修復、同期／async Batch APIを提供します。復旧計画、ローカルIPC、gRPCは今後のマイルストーンです。
 
 ## 保存構造
 
@@ -100,8 +100,8 @@ python -m tests tests/python -q
 # async読み書きのスループットを測定する
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32
 
-# 辞書形式のドキュメント往復を測定する
-python benchmark/python/mapping_roundtrip.py --items 1000
+# 辞書形式の往復とwarm cache読み取りを測定する
+python benchmark/python/mapping_roundtrip.py --items 1000 --read-rounds 10
 ```
 
 [ベンチマークの注意事項](benchmark/README.ja.md)も参照してください。

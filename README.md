@@ -30,7 +30,10 @@ asyncio.run(main())
 
 ## Status
 
-This repository is at the v0.1 foundation stage. It currently provides JSON documents, atomic writes, optimistic version checks, SQLite catalog/history, index rebuilding, and a PyO3 binding. File watching, cache policy, recovery plans, local IPC, and gRPC are deliberately future milestones.
+DirDB is at the v0.2 local-reliability stage. It provides a bounded Rust cache,
+native file watching with a periodic integrity check, automatic repair of
+invalid external JSON edits, and sync/async batch APIs. Recovery plans, local
+IPC, and gRPC remain future milestones.
 
 ## Layout
 
@@ -100,8 +103,8 @@ python -m tests tests/python -q
 # Measure async read/write throughput.
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32
 
-# Measure dictionary-style document round trips.
-python benchmark/python/mapping_roundtrip.py --items 1000
+# Measure dictionary-style document round trips and warm-cache reads.
+python benchmark/python/mapping_roundtrip.py --items 1000 --read-rounds 10
 ```
 
 See [benchmark notes](benchmark/README.md).

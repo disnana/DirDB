@@ -111,8 +111,8 @@ class DirDB(MutableMapping[str, Any]):
     def __len__(self) -> int:
         return len(self.list())
 
-    async def aget(self, key: str) -> Any:
-        return await asyncio.to_thread(self.get, key)
+    async def aget(self, key: str, default: Any = None) -> Any:
+        return await asyncio.to_thread(self.get, key, default)
 
     async def aset(
         self, key: str, value: Any, expected_version: int | None = None
