@@ -71,7 +71,12 @@ jobs:
           command: build
           args: --release --out dist
       - run: python -m pip install pytest
-      - run: python -m pip install --no-deps dist/*.whl
+      - name: Install the built wheel
+        run: >
+          python -c "from pathlib import Path; import subprocess, sys;
+          wheels = list(Path('dist').glob('*.whl'));
+          assert len(wheels) == 1, f'expected one wheel, found: {wheels}';
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-deps', str(wheels[0])])"
       - run: python -m pytest tests/python -q
       - run: python -m compileall python examples tests benchmark -q
 
@@ -94,7 +99,12 @@ jobs:
           command: build
           args: --release --out dist
       - run: python -m pip install pytest
-      - run: python -m pip install --no-deps dist/*.whl
+      - name: Install the built wheel
+        run: >
+          python -c "from pathlib import Path; import subprocess, sys;
+          wheels = list(Path('dist').glob('*.whl'));
+          assert len(wheels) == 1, f'expected one wheel, found: {wheels}';
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-deps', str(wheels[0])])"
       - run: python -m pytest tests/python -q
       - uses: actions/upload-artifact@v4
         with:
