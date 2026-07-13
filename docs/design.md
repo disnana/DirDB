@@ -106,6 +106,28 @@ DirDB atomically restores the last valid cached value, or the latest valid
 SQLite revision when the cache is cold. With no valid history, `stat()` reports
 the reload error.
 
+Native notifications are backed by a configurable integrity verifier. It first
+compares file modification time and size, then hashes and reloads only changed
+candidates. `auto_reload=False` disables all background work.
+
+## Batch Operations
+
+`get_many()` and `set_many()` cross the Python/Rust boundary once. Batch writes
+retain atomic replacement per document and commit all resulting SQLite metadata
+in one transaction. They preserve input order but are not an all-or-nothing
+filesystem transaction.
+
+```python
+await db.aset_many({"app/a": {"enabled": True}, "app/b": {"enabled": False}})
+values = await db.aget_many(["app/a", "app/b"])
+```
+
+## Process Model
+
+The local core guarantees multiple readers and one writer process. It does not
+create lock files on the data path. Applications needing multiple remote
+writers should serialize writes in the future IPC/gRPC service layer.
+
 `expected_version` prevents lost updates. A mismatch fails with a version-conflict error.
 
 ## Python Concurrency Model
@@ -162,7 +184,7 @@ The first release is embedded/local only. A separate server OSS may later provid
 | Phase | Deliverable |
 | --- | --- |
 | 0.1 | JSON documents, atomic writes, catalog/revisions, version checks, Rust tests, Python binding |
-| 0.2 | Bounded cache, native file watching, invalid-edit repair, path-level cross-process lock, CLI |
+| 0.2 | Bounded cache, native watching, integrity verification, invalid-edit repair, native batch API, CLI |
 | 0.3 | Snapshot and plan/apply recovery, maintenance mode |
 | 0.4 | Local IPC adapter |
 | Separate OSS | gRPC server/client, authentication, TLS, batching, watch streams |

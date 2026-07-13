@@ -37,8 +37,15 @@ class DirDB(MutableMapping[str, Any]):
         cache_max_items: int = 10_000,
         auto_reload: bool = True,
         debounce_ms: int = 100,
+        verify_interval_seconds: int | None = 60,
     ) -> None:
-        self._native = NativeDirDB(root, cache_max_items, auto_reload, debounce_ms)
+        self._native = NativeDirDB(
+            root,
+            cache_max_items,
+            auto_reload,
+            debounce_ms,
+            verify_interval_seconds,
+        )
 
     def get(self, key: str, default: Any = None) -> Any:
         try:
@@ -52,6 +59,12 @@ class DirDB(MutableMapping[str, Any]):
 
     def set(self, key: str, value: Any, expected_version: int | None = None) -> int:
         return self._native.set(key, value, expected_version)
+
+    def get_many(self, keys: list[str]) -> list[Any]:
+        return self._native.get_many(keys)
+
+    def set_many(self, values: dict[str, Any]) -> list[int]:
+        return self._native.set_many(values)
 
     def delete(self, key: str, expected_version: int | None = None) -> None:
         self._native.delete(key, expected_version)
@@ -105,6 +118,12 @@ class DirDB(MutableMapping[str, Any]):
         self, key: str, value: Any, expected_version: int | None = None
     ) -> int:
         return await asyncio.to_thread(self.set, key, value, expected_version)
+
+    async def aget_many(self, keys: list[str]) -> list[Any]:
+        return await asyncio.to_thread(self.get_many, keys)
+
+    async def aset_many(self, values: dict[str, Any]) -> list[int]:
+        return await asyncio.to_thread(self.set_many, values)
 
     async def adelete(self, key: str, expected_version: int | None = None) -> None:
         await asyncio.to_thread(self.delete, key, expected_version)

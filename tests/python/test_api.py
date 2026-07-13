@@ -120,6 +120,22 @@ def test_external_edits_reload_and_invalid_json_is_repaired(tmp_path) -> None:
     }
 
 
+def test_sync_and_async_batch_operations(tmp_path) -> None:
+    async def scenario() -> None:
+        db = DirDB(str(tmp_path / "state"))
+        assert db.set_many({"one": {"value": 1}, "two": {"value": 2}}) == [1, 1]
+        assert db.get_many(["two", "one"]) == [{"value": 2}, {"value": 1}]
+
+        versions = await db.aset_many({"three": {"value": 3}, "four": {"value": 4}})
+        assert versions == [1, 1]
+        assert await db.aget_many(["four", "three"]) == [
+            {"value": 4},
+            {"value": 3},
+        ]
+
+    asyncio.run(scenario())
+
+
 def wait_until(predicate, timeout: float = 3.0) -> None:
     deadline = time.monotonic() + timeout
     while not predicate():

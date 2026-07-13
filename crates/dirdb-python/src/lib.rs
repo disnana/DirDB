@@ -15,12 +15,13 @@ struct PyDirDb {
 #[pymethods]
 impl PyDirDb {
     #[new]
-    #[pyo3(signature = (root, cache_max_items=10_000, auto_reload=true, debounce_ms=100))]
+    #[pyo3(signature = (root, cache_max_items=10_000, auto_reload=true, debounce_ms=100, verify_interval_seconds=Some(60)))]
     fn new(
         root: String,
         cache_max_items: usize,
         auto_reload: bool,
         debounce_ms: u64,
+        verify_interval_seconds: Option<u64>,
     ) -> PyResult<Self> {
         Ok(Self {
             inner: DirDb::open_with_options(
@@ -29,6 +30,7 @@ impl PyDirDb {
                     cache_max_items,
                     auto_reload,
                     debounce: Duration::from_millis(debounce_ms),
+                    verify_interval: verify_interval_seconds.map(Duration::from_secs),
                 },
             )
             .map_err(to_py_error)?,
@@ -38,6 +40,17 @@ impl PyDirDb {
         let inner = self.inner.clone();
         let entry = py.allow_threads(|| inner.get(&key)).map_err(to_py_error)?;
         value_to_py(py, &entry.value)
+    }
+    fn get_many(&self, py: Python<'_>, keys: Vec<String>) -> PyResult<Vec<PyObject>> {
+        let inner = self.inner.clone();
+        let entries = py.allow_threads(|| inner.get_many(&keys));
+        entries
+            .into_iter()
+            .map(|entry| {
+                let entry = entry.map_err(to_py_error)?;
+                value_to_py(py, &entry.value)
+            })
+            .collect()
     }
     #[pyo3(signature = (key, value, expected_version=None))]
     fn set(
@@ -53,6 +66,17 @@ impl PyDirDb {
             .allow_threads(|| inner.set(&key, &value, expected_version))
             .map_err(to_py_error)?
             .version)
+    }
+    fn set_many(&self, py: Python<'_>, values: &Bound<'_, PyDict>) -> PyResult<Vec<u64>> {
+        let items = values
+            .iter()
+            .map(|(key, value)| Ok((key.extract::<String>()?, value_from_py(&value)?)))
+            .collect::<PyResult<Vec<_>>>()?;
+        let inner = self.inner.clone();
+        py.allow_threads(|| inner.set_many(&items))
+            .into_iter()
+            .map(|entry| entry.map(|entry| entry.version).map_err(to_py_error))
+            .collect()
     }
     #[pyo3(signature = (key, expected_version=None))]
     fn delete(&self, py: Python<'_>, key: String, expected_version: Option<u64>) -> PyResult<()> {

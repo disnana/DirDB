@@ -17,7 +17,7 @@ use std::{
 use lru::LruCache;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -60,6 +60,7 @@ pub struct Options {
     pub cache_max_items: usize,
     pub auto_reload: bool,
     pub debounce: Duration,
+    pub verify_interval: Option<Duration>,
 }
 
 impl Default for Options {
@@ -68,6 +69,7 @@ impl Default for Options {
             cache_max_items: 10_000,
             auto_reload: true,
             debounce: Duration::from_millis(100),
+            verify_interval: Some(Duration::from_secs(60)),
         }
     }
 }
@@ -92,8 +94,15 @@ struct Inner {
     connection: Mutex<Connection>,
     cache: Mutex<LruCache<String, Entry>>,
     reload_errors: Mutex<HashMap<String, String>>,
+    observed_files: Mutex<HashMap<String, FileStamp>>,
     cache_hits: AtomicU64,
     cache_misses: AtomicU64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct FileStamp {
+    size: u64,
+    modified_ns: u128,
 }
 
 /// A local store. Its `data/` tree is authoritative and can rebuild `metadata.db`.
@@ -132,11 +141,15 @@ impl DirDb {
             connection: Mutex::new(connection),
             cache: Mutex::new(LruCache::new(capacity)),
             reload_errors: Mutex::new(HashMap::new()),
+            observed_files: Mutex::new(HashMap::new()),
             cache_hits: AtomicU64::new(0),
             cache_misses: AtomicU64::new(0),
         });
         if options.auto_reload {
             start_watcher(Arc::downgrade(&inner), options.debounce)?;
+            if let Some(interval) = options.verify_interval {
+                start_verifier(Arc::downgrade(&inner), interval)?;
+            }
         }
         Ok(Self { inner })
     }
@@ -155,6 +168,10 @@ impl DirDb {
         let entry = load_entry(&self.inner, &key)?;
         self.inner.cache.lock().put(key, entry.clone());
         Ok(entry)
+    }
+
+    pub fn get_many(&self, keys: &[String]) -> Vec<Result<Entry>> {
+        keys.iter().map(|key| self.get(key)).collect()
     }
 
     pub fn exists(&self, key: &str) -> Result<bool> {
@@ -201,7 +218,15 @@ impl DirDb {
         };
         self.inner.cache.lock().put(key.clone(), entry.clone());
         self.inner.reload_errors.lock().remove(&key);
+        remember_stamp(&self.inner, &key);
         Ok(entry)
+    }
+
+    pub fn set_many(&self, items: &[(String, Value)]) -> Vec<Result<Entry>> {
+        match self.set_many_inner(items) {
+            Ok(entries) => entries.into_iter().map(Ok).collect(),
+            Err(error) => vec![Err(error)],
+        }
     }
 
     pub fn delete(&self, key: &str, expected_version: Option<u64>) -> Result<()> {
@@ -222,6 +247,7 @@ impl DirDb {
         connection.execute("DELETE FROM entries WHERE path=?1", params![key])?;
         self.inner.cache.lock().pop(&key);
         self.inner.reload_errors.lock().remove(&key);
+        self.inner.observed_files.lock().remove(&key);
         Ok(())
     }
 
@@ -261,11 +287,54 @@ impl DirDb {
         transaction.commit()?;
         self.inner.cache.lock().clear();
         self.inner.reload_errors.lock().clear();
+        self.inner.observed_files.lock().clear();
         Ok(keys.len())
     }
 
     fn current_version(&self, key: &str) -> Result<Option<u64>> {
         current_version_from_connection(&self.inner.connection.lock(), key)
+    }
+
+    fn set_many_inner(&self, items: &[(String, Value)]) -> Result<Vec<Entry>> {
+        let normalized = items
+            .iter()
+            .map(|(key, value)| Ok((normalize_key(key)?, value)))
+            .collect::<Result<Vec<_>>>()?;
+        let mut connection = self.inner.connection.lock();
+        let mut prepared = Vec::with_capacity(normalized.len());
+        for (key, value) in normalized {
+            let version = current_version_from_connection(&connection, &key)?.unwrap_or(0) + 1;
+            let bytes = serde_json::to_vec_pretty(value)?;
+            atomic_write(&file_path(&self.inner, &key), &bytes)?;
+            let hash = digest(&bytes);
+            prepared.push((
+                Entry {
+                    key,
+                    value: value.clone(),
+                    version,
+                    hash,
+                },
+                bytes,
+            ));
+        }
+        let transaction = connection.transaction()?;
+        for (entry, bytes) in &prepared {
+            record_revision_in_transaction(
+                &transaction,
+                &entry.key,
+                entry.version,
+                &entry.hash,
+                bytes,
+            )?;
+        }
+        transaction.commit()?;
+        let mut cache = self.inner.cache.lock();
+        for (entry, _) in &prepared {
+            cache.put(entry.key.clone(), entry.clone());
+            self.inner.reload_errors.lock().remove(&entry.key);
+            remember_stamp(&self.inner, &entry.key);
+        }
+        Ok(prepared.into_iter().map(|(entry, _)| entry).collect())
     }
 }
 
@@ -280,12 +349,14 @@ fn load_entry(inner: &Inner, key: &str) -> Result<Entry> {
     let value = serde_json::from_slice(&bytes)?;
     let hash = digest(&bytes);
     let version = current_version_from_connection(&inner.connection.lock(), key)?.unwrap_or(0);
-    Ok(Entry {
+    let entry = Entry {
         key: key.to_owned(),
         value,
         version,
         hash,
-    })
+    };
+    remember_stamp(inner, key);
+    Ok(entry)
 }
 
 fn refresh_external(inner: &Inner, key: &str) {
@@ -293,6 +364,7 @@ fn refresh_external(inner: &Inner, key: &str) {
     if !path.is_file() {
         inner.cache.lock().pop(key);
         inner.reload_errors.lock().remove(key);
+        inner.observed_files.lock().remove(key);
         let _ = inner
             .connection
             .lock()
@@ -333,6 +405,7 @@ fn refresh_external(inner: &Inner, key: &str) {
         .is_some_and(|(_, known_hash)| known_hash == &hash)
     {
         inner.reload_errors.lock().remove(key);
+        remember_stamp(inner, key);
         return;
     }
     let version = known.map_or(1, |(version, _)| version + 1);
@@ -353,6 +426,34 @@ fn refresh_external(inner: &Inner, key: &str) {
         },
     );
     inner.reload_errors.lock().remove(key);
+    remember_stamp(inner, key);
+}
+
+fn start_verifier(inner: Weak<Inner>, interval: Duration) -> Result<()> {
+    thread::Builder::new()
+        .name("dirdb-verifier".into())
+        .spawn(move || loop {
+            thread::sleep(interval);
+            let Some(inner) = inner.upgrade() else { break };
+            verify_observed_files(&inner);
+        })?;
+    Ok(())
+}
+
+fn verify_observed_files(inner: &Inner) {
+    let mut current_keys = Vec::new();
+    if collect_keys(&inner.data_dir, &inner.data_dir, &mut current_keys).is_err() {
+        return;
+    }
+    let current: HashSet<_> = current_keys.iter().cloned().collect();
+    let observed: HashSet<_> = inner.observed_files.lock().keys().cloned().collect();
+    for key in current.union(&observed) {
+        let stamp = file_stamp(&file_path(inner, key));
+        let known = inner.observed_files.lock().get(key).copied();
+        if stamp != known {
+            refresh_external(inner, key);
+        }
+    }
 }
 
 fn restore_last_valid(inner: &Inner, key: &str) -> Result<()> {
@@ -448,6 +549,18 @@ fn record_revision(
     bytes: &[u8],
 ) -> Result<()> {
     let transaction = connection.unchecked_transaction()?;
+    record_revision_in_transaction(&transaction, key, version, hash, bytes)?;
+    transaction.commit()?;
+    Ok(())
+}
+
+fn record_revision_in_transaction(
+    transaction: &Transaction<'_>,
+    key: &str,
+    version: u64,
+    hash: &str,
+    bytes: &[u8],
+) -> Result<()> {
     let now = now_unix();
     transaction.execute(
         "INSERT INTO entries(path, version, content_hash, modified_at) VALUES(?1, ?2, ?3, ?4)
@@ -458,7 +571,6 @@ fn record_revision(
         "INSERT OR IGNORE INTO revisions(path, version, content, content_hash, created_at) VALUES(?1, ?2, ?3, ?4, ?5)",
         params![key, version, bytes, hash, now],
     )?;
-    transaction.commit()?;
     Ok(())
 }
 
@@ -483,6 +595,26 @@ fn current_metadata_from_connection(
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?)
+}
+
+fn file_stamp(path: &Path) -> Option<FileStamp> {
+    let metadata = fs::metadata(path).ok()?;
+    let modified_ns = metadata
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    Some(FileStamp {
+        size: metadata.len(),
+        modified_ns,
+    })
+}
+
+fn remember_stamp(inner: &Inner, key: &str) {
+    if let Some(stamp) = file_stamp(&file_path(inner, key)) {
+        inner.observed_files.lock().insert(key.to_owned(), stamp);
+    }
 }
 
 fn normalize_key(key: &str) -> Result<String> {
@@ -649,6 +781,42 @@ mod tests {
         assert!(db.stat("app/config").unwrap().file_valid);
         assert_eq!(db.get("app/config").unwrap().value["value"], 2);
         assert_eq!(db.get("app/config").unwrap().version, version);
+    }
+
+    #[test]
+    fn integrity_verification_detects_a_missed_event() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = DirDb::open_with_options(
+            directory.path(),
+            Options {
+                auto_reload: false,
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        db.set("app/config", &serde_json::json!({"value": 1}), None)
+            .unwrap();
+        fs::write(
+            directory.path().join("data/app/config.json"),
+            br#"{"value":200}"#,
+        )
+        .unwrap();
+        verify_observed_files(&db.inner);
+        assert_eq!(db.get("app/config").unwrap().value["value"], 200);
+    }
+
+    #[test]
+    fn batch_operations_preserve_input_order() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = DirDb::open(directory.path()).unwrap();
+        let writes = db.set_many(&[
+            ("one".into(), serde_json::json!({"value": 1})),
+            ("two".into(), serde_json::json!({"value": 2})),
+        ]);
+        assert!(writes.into_iter().all(|entry| entry.unwrap().version == 1));
+        let reads = db.get_many(&["two".into(), "one".into()]);
+        assert_eq!(reads[0].as_ref().unwrap().value["value"], 2);
+        assert_eq!(reads[1].as_ref().unwrap().value["value"], 1);
     }
 
     fn wait_until(mut predicate: impl FnMut() -> bool) {

@@ -5,7 +5,13 @@
 ```python
 from dirdb import DirDB
 
-db = DirDB("./state", cache_max_items=10_000, auto_reload=True, debounce_ms=100)
+db = DirDB(
+    "./state",
+    cache_max_items=10_000,
+    auto_reload=True,
+    debounce_ms=100,
+    verify_interval_seconds=60,
+)
 ```
 
 監視、JSON検証、キャッシュ、ファイルI/O、ハッシュ、SQLite処理はRust側で動きます。直接編集したファイルはdebounce後の次回`get()`から見えます。壊れたJSONは最後の正常値へ原子的に書き戻されます。ヒット数は`db.cache_stats()`、再読込状態は`db.stat(key)`で確認できます。
@@ -41,7 +47,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-利用できる非同期メソッドは、`aget`、`aset`、`adelete`、`aexists`、`alist`、`arebuild_index`です。
+利用できる非同期メソッドには、`aget`、`aset`、`aget_many`、`aset_many`、`adelete`、`aexists`、`alist`、`astat`、`arebuild_index`があります。
 
 ## 同期で使う
 

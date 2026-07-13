@@ -15,7 +15,7 @@ This list tracks implementation work. The [design document](docs/design.md) expl
 
 ## v0.2 Local Reliability
 
-- [ ] Process-safe path-level file locks
+- [x] Define cross-process operation as multiple readers and a single writer; no lock files
 - [x] Configurable bounded memory cache with automatic invalidation
 - [x] Native file watching, debounce, reload, and invalid-edit self-repair
 - [ ] File watch API with event coalescing
@@ -36,7 +36,7 @@ This list tracks implementation work. The [design document](docs/design.md) expl
 
 - [ ] Typed exception classes for not found, version conflict, path, and storage errors
 - [ ] `AsyncDirDB` convenience facade or documented lifecycle policy
-- [ ] Async batch APIs after core batch semantics exist
+- [x] Native sync/async batch get and batch set APIs
 - [ ] Type stubs and API reference generation
 
 ## Performance and Quality

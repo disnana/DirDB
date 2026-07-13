@@ -8,6 +8,10 @@ The Python benchmarks measure end-to-end performance, including Python schedulin
 python benchmark/python/async_throughput.py --items 1000 --concurrency 32
 ```
 
+This reports individual async operations and native batch operations separately.
+Batch writes retain one `fsync` per authoritative file; batch reads primarily
+measure the single Python/Rust boundary crossing and warm Rust cache.
+
 ### Dictionary Round Trips
 
 This uses `db["path"] = value` and `db["path"]` with nested dictionaries and lists. It measures the structured Python-to-Rust conversion path.

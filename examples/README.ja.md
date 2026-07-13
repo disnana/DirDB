@@ -7,9 +7,11 @@
 | Python | [async_concurrency.py](python/async_concurrency.py) | 上限付きの並行async書き込み | `python examples/python/async_concurrency.py` |
 | Python | [version_conflict.py](python/version_conflict.py) | 楽観的バージョン検査 | `python examples/python/version_conflict.py` |
 | Python | [auto_reload.py](python/auto_reload.py) | ネイティブ再読込と壊れた編集の自己修復 | `python examples/python/auto_reload.py` |
+| Python | [async_batch.py](python/async_batch.py) | Rustネイティブのasync Batch読み書き | `python examples/python/async_batch.py` |
 | Rust | [basic](rust/basic/src/main.rs) | コアへの直接読み書き | `cargo run --manifest-path examples/rust/basic/Cargo.toml` |
 | Rust | [version_conflict](rust/basic/src/bin/version_conflict.rs) | 楽観的バージョン検査 | `cargo run --manifest-path examples/rust/basic/Cargo.toml --bin version_conflict` |
 | Rust | [rebuild_index](rust/basic/src/bin/rebuild_index.rs) | ファイルからSQLiteカタログを再構築 | `cargo run --manifest-path examples/rust/basic/Cargo.toml --bin rebuild_index` |
+| Rust | [batch](rust/basic/src/bin/batch.rs) | 入力順を保つネイティブBatch操作 | `cargo run --manifest-path examples/rust/basic/Cargo.toml --bin batch` |
 
 Pythonサンプルはasync-firstの公開APIを使います。Rustサンプルは`dirdb-core`を直接使います。どちらも破棄可能なデータを`example-state/`以下へ保存します。
 

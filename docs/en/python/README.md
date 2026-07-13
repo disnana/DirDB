@@ -5,7 +5,13 @@
 ```python
 from dirdb import DirDB
 
-db = DirDB("./state", cache_max_items=10_000, auto_reload=True, debounce_ms=100)
+db = DirDB(
+    "./state",
+    cache_max_items=10_000,
+    auto_reload=True,
+    debounce_ms=100,
+    verify_interval_seconds=60,
+)
 ```
 
 The watcher, JSON validation, cache, file I/O, hashing, and SQLite work run in
@@ -44,7 +50,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Available async methods are `aget`, `aset`, `adelete`, `aexists`, `alist`, and `arebuild_index`.
+Available async methods include `aget`, `aset`, `aget_many`, `aset_many`,
+`adelete`, `aexists`, `alist`, `astat`, and `arebuild_index`.
 
 ## Synchronous Use
 
