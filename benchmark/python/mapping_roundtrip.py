@@ -37,7 +37,9 @@ def main() -> None:
     read_seconds = perf_counter() - started
 
     print(f"items: {args.items}")
-    print(f"dict writes: {args.items / write_seconds:,.0f} ops/s ({write_seconds:.3f}s)")
+    print(
+        f"dict writes: {args.items / write_seconds:,.0f} ops/s ({write_seconds:.3f}s)"
+    )
     print(f"dict reads:  {args.items / read_seconds:,.0f} ops/s ({read_seconds:.3f}s)")
 
 

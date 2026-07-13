@@ -69,7 +69,10 @@ def test_concurrent_async_operations_complete_without_deadlock(tmp_path) -> None
 
         versions = await asyncio.wait_for(
             asyncio.gather(
-                *(db.aset(f"bulk/{index}", {"index": index}) for index in range(item_count))
+                *(
+                    db.aset(f"bulk/{index}", {"index": index})
+                    for index in range(item_count)
+                )
             ),
             timeout=5,
         )

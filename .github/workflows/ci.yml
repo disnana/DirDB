@@ -146,9 +146,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release-eligibility.outputs.publish == 'true'
     needs: [release-eligibility, python-tests, wheels, source]
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/DirDB-Rust/
     permissions:
       id-token: write
     steps:

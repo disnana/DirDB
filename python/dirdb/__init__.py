@@ -70,7 +70,9 @@ class DirDB(MutableMapping[str, Any]):
     async def aget(self, key: str) -> Any:
         return await asyncio.to_thread(self.get, key)
 
-    async def aset(self, key: str, value: Any, expected_version: int | None = None) -> int:
+    async def aset(
+        self, key: str, value: Any, expected_version: int | None = None
+    ) -> int:
         return await asyncio.to_thread(self.set, key, value, expected_version)
 
     async def adelete(self, key: str, expected_version: int | None = None) -> None:
