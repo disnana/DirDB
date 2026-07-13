@@ -108,8 +108,8 @@ python benchmark/python/mapping_roundtrip.py --items 1000 --read-rounds 10
 
 ## CIとリリース
 
-[CI](.github/workflows/ci.yml)は、Rustフォーマット、Clippy、Rustテスト、Ruff検査／フォーマット、wheelのビルド／インストールを含むpytest、Pythonコンパイル検査、OS別wheelビルドを実行します。`main`へのpushがすべて成功すると、CIはPyPI上の同一バージョンを確認します。新しいバージョンの場合はGitHub Releaseを作成し、Trusted PublishingでLinux、macOS、Windows向けwheelとソース配布物を[PyPI](https://pypi.org/project/DirDB-Rust/)へ公開します。
+[CI](https://github.com/disnana/DirDB/actions/workflows/ci.yml)は、Rustフォーマット、Clippy、Rustテスト、Ruff検査／フォーマット、wheelのビルド／インストールを含むpytest、Pythonコンパイル検査、OS別wheelビルドを実行します。`main`へのpushがすべて成功すると、CIはPyPI上の同一バージョンを確認します。新しいバージョンの場合はGitHub Releaseを作成し、Trusted PublishingでLinux、macOS、Windows向けwheelとソース配布物を[PyPI](https://pypi.org/project/DirDB-Rust/)へ公開します。
 
-文書: [日本語ガイド](docs/ja/README.md) | [English guides](docs/en/README.md) | [日本語設計書](docs/design.ja.md) | [English design](docs/design.md) | [English README](README.md)
+文書: [日本語ガイド](https://github.com/disnana/DirDB/tree/main/docs/ja) | [English guides](https://github.com/disnana/DirDB/tree/main/docs/en) | [日本語設計書](https://github.com/disnana/DirDB/blob/main/docs/design.ja.md) | [English design](https://github.com/disnana/DirDB/blob/main/docs/design.md) | [English README](https://github.com/disnana/DirDB/blob/main/README.md)
 
-実装タスク: [TODO](TODO.ja.md) | [TODO (English)](TODO.md)
+実装タスク: [TODO](https://github.com/disnana/DirDB/blob/main/TODO.ja.md) | [TODO (English)](https://github.com/disnana/DirDB/blob/main/TODO.md)

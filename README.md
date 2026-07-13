@@ -111,8 +111,8 @@ See [benchmark notes](benchmark/README.md).
 
 ## CI and Releases
 
-[CI](.github/workflows/ci.yml) runs Rust formatting, Clippy, Rust tests, Ruff checks/formatting, wheel build/install tests with pytest, Python compilation checks, and platform wheel builds. A successful push to `main` automatically checks the package version against PyPI; if it is new, CI creates a GitHub Release and publishes the Linux, macOS, and Windows wheels plus the source distribution to [PyPI](https://pypi.org/project/DirDB-Rust/) through Trusted Publishing.
+[CI](https://github.com/disnana/DirDB/actions/workflows/ci.yml) runs Rust formatting, Clippy, Rust tests, Ruff checks/formatting, wheel build/install tests with pytest, Python compilation checks, and platform wheel builds. A successful push to `main` automatically checks the package version against PyPI; if it is new, CI creates a GitHub Release and publishes the Linux, macOS, and Windows wheels plus the source distribution to [PyPI](https://pypi.org/project/DirDB-Rust/) through Trusted Publishing.
 
-Documentation: [English guides](docs/en/README.md) | [Japanese guides](docs/ja/README.md) | [English design](docs/design.md) | [日本語設計書](docs/design.ja.md) | [日本語README](README.ja.md)
+Documentation: [English guides](https://github.com/disnana/DirDB/tree/main/docs/en) | [Japanese guides](https://github.com/disnana/DirDB/tree/main/docs/ja) | [English design](https://github.com/disnana/DirDB/blob/main/docs/design.md) | [日本語設計書](https://github.com/disnana/DirDB/blob/main/docs/design.ja.md) | [日本語README](https://github.com/disnana/DirDB/blob/main/README.ja.md)
 
-Implementation tracker: [TODO](TODO.md) | [TODO (Japanese)](TODO.ja.md)
+Implementation tracker: [TODO](https://github.com/disnana/DirDB/blob/main/TODO.md) | [TODO (Japanese)](https://github.com/disnana/DirDB/blob/main/TODO.ja.md)
